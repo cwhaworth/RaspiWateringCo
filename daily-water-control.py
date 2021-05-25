@@ -3,7 +3,7 @@ from datetime import date
 from datetime import datetime
 
 #log file to read forcast from
-log = open("weather_log.txt", "r")
+log = open("~/RaspiWateringCo/forecast.txt", "r")
 fcast = log.readlines()
 fcastToday = ""
 log.close()
@@ -36,9 +36,9 @@ for line in fcast:
 
 #perform and log actions
 #print(str(fcastToday))
-log = open('water-log.txt', 'a')
+log = open('~/RaspiWateringCo/water-log.txt', 'a')
 sectData = None
-with open('watering-sectors.json', 'r') as f:
+with open('~/RaspiWateringCo/watering-sectors.json', 'r') as f:
 	sectData = json.load(f)
 now = datetime.now()
 
@@ -47,7 +47,7 @@ if fcastToday != '' and "rain" in fcastToday:
 	log.write(now.strftime("%d/%m/%Y %H:%M:%S") + " did not water because it rained today.\n")
 	sectData["last-rained"] = 0
 	#print(fcastToday[ : 10] + " -> water the plants, and perform other logical functions.")
-	with open('watering-sectors-test.json', 'w') as f:
+	with open('~/RaspiWateringCo/watering-sectors.json', 'w') as f:
 		json.dump(sectData, f)
 
 elif fcastToday != '':
@@ -58,13 +58,13 @@ elif fcastToday != '':
 	log.write("\n")
 	sectData["last-rained"] += 1
 	#print(fcastToday[ : 10] + " -> do not water the plants, and perform other logical functions.")
-	with open('watering-sectors-test.json', 'w') as f:
+	with open('~/RaspiWateringCo/watering-sectors.json', 'w') as f:
 		json.dump(sectData, f)
 
 else:
 	sectData["last-rained"] += 1
 	#print(fcastToday[ : 10] + " -> forecast data was not initialized correctly. correct error in 'get-forecast.py'")
-	with open('watering-sectors-test.json', 'w') as f:
+	with open('~/RaspiWateringCo/watering-sectors.json', 'w') as f:
 		json.dump(sectData, f)
 	log.write(now.strftime("%d/%m/%Y %H:%M:%S") + "forecast data was not initialized correctly. correct error in 'get-forecast.py'.\n")
 
