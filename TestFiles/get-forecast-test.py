@@ -1,6 +1,6 @@
 from pyowm.owm import OWM
 
-owm = OWM('1c29d386be313a4c1bc91710a3ff6d01')
+owm = OWM('YOUR-API-KEY-HERE')
 #cary_lat = 35.791538
 #cary_lon = -78.781120
 
