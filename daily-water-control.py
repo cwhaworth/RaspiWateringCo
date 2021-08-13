@@ -47,7 +47,7 @@ if fcastToday != '' and "rain" in fcastToday:
 	sectData["last-rained"] = 0
 	#print(fcastToday[ : 10] + " -> do not water the plants, and perform other logical functions.")
 	with open('watering-sectors.json', 'w') as f:
-		json.dump(sectData, f)
+		json.dump(sectData, f, indent=2, sort_keys=True)
 
 #if it does not rain: water sectors based on interval
 elif fcastToday != '':
@@ -61,14 +61,14 @@ elif fcastToday != '':
 	log.write(line)
 	#print(fcastToday[ : 10] + " -> water the plants, and perform other logical functions.")
 	with open('watering-sectors.json', 'w') as f:
-		json.dump(sectData, f)
+		json.dump(sectData, f, indent=2, sort_keys=True)
 
 #if get forecast operation returned erroneous
 else:
 	sectData["last-rained"] += 1
 	#print(fcastToday[ : 10] + " -> forecast data was not initialized correctly. correct error in 'get-forecast.py'")
 	with open('watering-sectors.json', 'w') as f:
-		json.dump(sectData, f)
+		json.dump(sectData, f, indent=2, sort_keys=True)
 	log.write(now.strftime("%d/%m/%Y %H:%M:%S") + " Forecast data was not initialized correctly. correct error in 'get-forecast.py'.\n")
 
 log.close()
