@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="author" content="Chris Haworth">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="stylesheet" href="/Styles/styles.css">
+
+	<title>RWC GUI - Home</title>
+</head>
+
+<body onload="RunScript()">
+<section name="centerContent">
+<div name="topBar">
+	<h1>Raspi Watering Co. Web GUI</h1>
+	<nav>
+		<a href="index.html">Home</a>
+		<a href="initialize.html">Initialize</a>
+		<a href="water-log.html">Water Log</a> 
+	</nav>
+</div>
+
+<div name="Sectors">
+	<h3>Initialize Sectors</h3>
+	<p id="sectorList"></p>
+</div>
+</section>
+</body>
+
+<script>
+var sectData;
+
+function MakeSectorForms(){
+	console.log("begin making sector forms");
+	var request = new XMLHttpRequest();
+	request.open("GET", "/ScriptsPy/JSON/watering-sectors.json", true); 
+	request.send(null);
+	console.log(request);
+	request.onreadystatechange = function(){
+		if (request.readyState == 4 && request.status == 200){
+			sectData = JSON.parse(request.responseText);
+			console.log(sectData);
+
+			var br = document.createElement("br");
+			var sendForm = document.createElement("form");
+			sendForm.setAttribute("method", "post");
+			sendForm.setAttribute("id", "sendForm");
+
+			for (var i = 0; i < sectData.sector.length; i++){
+				
+				var sectForm = document.createElement("form");
+				sectForm.setAttribute("class", "sectForm");
+				
+				var sectID = document.createElement("input");
+				sectID.setAttribute("type", "text");
+				sectID.setAttribute("name", "sectorID");
+				sectID.setAttribute("placeholder", "Sector ID");
+				sectID.setAttribute("value", sectData.sector[i]["id"]);
+
+				var sectPin = document.createElement("input");
+				sectPin.setAttribute("type", "text");
+				sectPin.setAttribute("name", "sectorPin");
+				sectPin.setAttribute("placeholder", "GPIO Pin");
+				sectPin.setAttribute("value", sectData.sector[i]["pin"]);
+
+				var sectInc = document.createElement("input");
+				sectInc.setAttribute("type", "text");
+				sectInc.setAttribute("name", "sectorInc");
+				sectInc.setAttribute("placeholder", "Rain Incriment");
+				sectInc.setAttribute("value", sectData.sector[i]["rain-inc"]);
+
+				//var btnDel = document.createElement("input");
+				//btnDel.setAttribute("type", "submit");
+				//btnDel.setAttribute("value", "Delete");
+
+				sectForm.appendChild(sectID);
+				sectForm.appendChild(br.cloneNode());
+				sectForm.appendChild(sectPin);
+				sectForm.appendChild(br.cloneNode());
+				sectForm.appendChild(sectInc);
+				sectForm.appendChild(br.cloneNode());
+				//sectForm.appendChild(btnDel);
+				//sectForm.appendChild(br.cloneNode());
+
+				sendForm.appendChild(sectForm);
+				sendForm.appendChild(br.cloneNode());
+			}
+
+			//var btnAdd = document.createElement("input");
+			//btnAdd.setAttribute("type", "submit");
+			//btnAdd.setAttribute("value", "Add Sector");
+			//btnadd.setAttribute("id", "btnAdd");
+			//sendForm.appendChild(btnAdd);
+			//sendForm.appendChild(br.cloneNode());
+
+			var btnInit = document.createElement("input");
+			btnInit.setAttribute("type", "submit");
+			btnInit.setAttribute("id", "btnInit");
+			btnInit.setAttribute("onclick", "Write2JSON()");
+			btnInit.setAttribute("value", "Initialize");
+			sendForm.appendChild(btnInit);
+
+			document.getElementById("sectorList").appendChild(sendForm);
+		}
+	}
+}
+
+function RunScript(){
+	MakeSectorForms();
+}
+
+function Write2JSON(){
+//	var request = new XMLHttpRequest();
+//	request.open("GET", "/ScriptsPy/JSON/watering-sectors.json", true);
+//	request.send(null)
+//	console.log(request);
+//	request.onreadystatechange = function(){
+//		if (request.readyState == 4 && request.status == 200){
+			var formData = document.getElementsByClassName("sendForm");
+
+			console.log(sectData);
+			for (var i = 0; i < formData.length; i++){
+				sectData.sector[i]["id"] = formData[i].getElementByName("sectorID").value;
+				sectData.sector[i]["pin"] = formData[i].getElementByName("sectorPin").value;
+				sectData.sector[i]["rain-inc"] = formData[i].getElementByName("sectorInc").value;
+			}
+			console.log(sectData);
+//		}
+//	}
+
+	fetch("/ScriptsPy/JSON/watering-sectors.json",{
+		method: "POST",
+		body: JSON.stringify(sectData)
+	}).then(res =>{
+		console.log("JSON posted!", res);
+	});
+
+	//request.open("POST", "/ScriptsPy/JSON/watering-sectors.json", true);
+	//request.setRequestHeader("Content-Type", "application/json");
+	//request.send(sectData);
+}
+
+</script>
+</html>
