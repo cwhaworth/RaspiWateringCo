@@ -5,7 +5,7 @@
 	<meta name="author" content="Chris Haworth">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-	<link rel="stylesheet" href="/Styles/styles.css">
+	<link rel="stylesheet" href={{styles}}>
 
 	<title>RWC GUI - Home</title>
 </head>
@@ -15,9 +15,9 @@
 <div name="topBar">
 	<h1>Raspi Watering Co. Web GUI</h1>
 	<nav>
-		<a href="index.html">Home</a>
-		<a href="initialize.html">Initialize</a>
-		<a href="water-log.html">Water Log</a> 
+		<a href={{indexurl}}>Home</a>
+		<a href={{initurl}}>Initialize</a>
+		<a href={{waterurl}}>Water Log</a> 
 	</nav>
 </div>
 
@@ -26,21 +26,30 @@
 	<p id="weather">
 		<table>
 		<tr><th>Date</th><th>Time (GMT)</th><th>Status</th></tr>
-		{% for line in data['weather'] %}
-		<tr>{{ line }}</tr>	
+		{% for data in data['weather'] %}
+		<tr>
+		<td>{{ data['date'] }}</td>
+		<td>{{ data['time'] }}</td>
+		<td>{{ data['status'] }}</td>
+		</tr>	
 		{% endfor %}
 		</table>
 	</p>
 </div>
 
 <div name="right">
-	<p>Last rained <b><var id="lastRained"></var></b> days ago</p>
+	<p>Last rained <b>{{data['sectData']['last-rained']}}</b> days ago</p>
 	<h3>Sectors</h3>
 	<p id="sectorTable">
 		<table>
 		<tr><th>ID</th><th>Pin</th><th>Rain Inc.</th><th>Override</th>
 		{% for sector in data['sectData'].sector %}
-		<tr>sector["id"]</tr><tr>sector["pin"]</tr><tr>sector["rain-inc"]</tr><tr><button type="submit">Water Now</button></tr>
+		<tr>
+			<td>{{sector["id"]}}</td>
+			<td>{{sector["pin"]}}</td>
+			<td>{{sector["rain-inc"]}}</td>
+			<td><button type="submit">Water Now</button></td>
+		</tr>
 		{% endfor %}
 		</table>
 	</p>
