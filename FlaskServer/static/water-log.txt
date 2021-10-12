@@ -1,6 +1,6 @@
-10/03/2021 22:54:48 Watered all sectors by manual override.
-10/03/2021 22:54:48 Watered sector 1 by manual override.
-10/03/2021 22:54:49 Watered sector 2 by manual override.
-10/03/2021 22:54:49 Watered sector 3 by manual override.
-10/04/2021 11:00:02 Did not water, because it rained today.
-10/04/2021 20:47:03 Watered sector 4 by manual override.
+10/09/2021 18:50:57 Watered all sectors by manual override.
+10/09/2021 18:52:28 Watered all sectors by manual override.
+10/09/2021 19:01:54 Watered sector 4 by manual override.
+10/10/2021 11:00:01 Did not water, because it rained today.
+10/11/2021 11:00:01 Watered sector(s): 1
+10/12/2021 11:00:01 Watered sector(s): 1

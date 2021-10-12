@@ -1,8 +1,11 @@
-import json, re
+import json, re, time
+import RPi.GPIO as GPIO
 
 from datetime import date, datetime
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 app = Flask(__name__)
+
+GPIO.setmode(GPIO.BCM)
 
 @app.route("/")
 @app.route("/index", methods=['GET', 'POST'])
@@ -30,12 +33,51 @@ def index():
 		return render_template('index.html', navurl=navURL, styles=styles, data=data)
 
 def waterAll():
+	sectData = getSectData()
+	pump = sectData['pump-pin']
+
+	GPIO.setup(pump, GPIO.OUT)
+	GPIO.output(pump, GPIO.HIGH)
+	time.sleep(1)
+
+	for sector in sectData['sector']:
+		GPIO.setup(sector['pin'], GPIO.OUT)
+		GPIO.output(sector['pin'], GPIO.HIGH)
+	time.sleep(4)
+
+	GPIO.cleanup(pump)
+	time.sleep(1)
+
+	for sector in sectData['sector']:
+		GPIO.cleanup(sector['pin'])
+
 	log = open('static/water-log.txt', 'a')
 	now = datetime.now()
 
 	log.write(f"{now.strftime('%m/%d/%Y %H:%M:%S')} Watered all sectors by manual override.\n")
 
 def waterNow(sectID):
+	sectData = getSectData()
+	pump = sectData['pump-pin']
+
+	sectorTemp = {}
+	for sector in sectData['sector']:
+		if sector['id'] == sectID:
+			sectorTemp = sector
+			break
+
+	GPIO.setup(pump, GPIO.OUT)
+	GPIO.output(pump, GPIO.HIGH)
+	time.sleep(1)
+
+	GPIO.setup(sectorTemp['pin'], GPIO.OUT)
+	GPIO.output(sectorTemp['pin'], GPIO.HIGH)
+	time.sleep(4)
+
+	GPIO.cleanup(pump)
+	time.sleep(1)
+	GPIO.cleanup(sectorTemp['pin'])
+
 	log = open('static/water-log.txt', 'a')
 	now = datetime.now()
 
@@ -47,7 +89,6 @@ def getForecast(forecast_file):
 	weather = []
 
 	for line in fcast:
-		counter += 1
 
 		if counter == 8:
 			break
@@ -70,6 +111,8 @@ def getForecast(forecast_file):
 				'status': status
 			}
 			weather.append(data)
+
+		counter +=1
 	return weather
 
 @app.route("/initialize", methods=['GET', 'POST'])
@@ -80,6 +123,7 @@ def initialize():
 
 	if request.method == 'POST':
 		tempData = {'last-rained': sectData['last-rained'],
+			'pump-pin': sectData['pump-pin'],
 			'sector':[]
 		}
 
@@ -118,6 +162,8 @@ def initialize():
 
 				return render_template('initialize.html', navurl=navURL, styles=styles, sectData=tempData)
 			elif key == 'sectInit':
+				tempData['pump-pin'] = int(request.form['pumpPin'])
+
 				for i in range(len(sectID)):
 					sectTemp = {'id': i + 1,
 						'pin': int(sectPin[i]),
