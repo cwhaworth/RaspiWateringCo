@@ -104,7 +104,7 @@ def getForecast(forecast_file):
 			status = status.replace('status=', '')
 
 			date = extractTime[ : 10]
-			time = extractTime[12 : ]
+			time = extractTime[11 : ].strip()
 
 			data = {'date': date,
 				'time': time,
