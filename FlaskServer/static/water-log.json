@@ -1,0 +1,24 @@
+{
+  "log": [
+    {
+      "date": "11/15/2021",
+      "message": "Watered sector 4 by manual override.",
+      "time": "20:07:58"
+    },
+    {
+      "date": "11/15/2021",
+      "message": "Watered all sectors by manual override.",
+      "time": "20:18:17"
+    },
+    {
+      "date": "11/15/2021",
+      "message": "Watered sector 4 by manual override.",
+      "time": "20:18:30"
+    },
+    {
+      "date": "11/15/2021",
+      "message": "Watered sector(s): 1, 2",
+      "time": "20:47:21"
+    }
+  ]
+}
