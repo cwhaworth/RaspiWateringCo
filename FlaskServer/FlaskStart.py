@@ -2,6 +2,7 @@ import json, re, time
 import RPi.GPIO as GPIO
 
 from datetime import date, datetime
+from gpiozero import CPUTemperature
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 app = Flask(__name__)
 
@@ -22,27 +23,34 @@ def index():
 	else:
 		navURL = getNavURL()
 		styles = getStyles()
+		now = datetime.now()
+		cpu = CPUTemperature()
 
 		data = {'sectData': None,
-			'weather': None
+			'weather': None,
+			'sysData': None,
+			'cpuTemp': {
+				'time': f'{now.strftime("%H:%M")}',
+				'temp': f'{round(cpu.temperature, 1)} C'
+			}
 		}
-		data['sectData'] = getSectData()
-		forecast_file = open('static/forecast.txt')
-		data['weather'] = getForecast(forecast_file)
+		data['sectData'] = getJsonData('watering-sectors')
+		data['weather'] = getForecast(open('static/forecast.txt'))
+		data['sysData'] = getJsonData('system-data')
 
 		return render_template('index.html', navurl=navURL, styles=styles, data=data)
 
 def waterAll():
-	sectData = getSectData()
+	sectData = getJsonData('watering-sectors')
 	pump = sectData['pump-pin']
 
 	GPIO.setup(pump, GPIO.OUT)
-	GPIO.output(pump, GPIO.HIGH)
+	GPIO.output(pump, GPIO.LOW)
 	time.sleep(1)
 
 	for sector in sectData['sector']:
 		GPIO.setup(sector['pin'], GPIO.OUT)
-		GPIO.output(sector['pin'], GPIO.HIGH)
+		GPIO.output(sector['pin'], GPIO.LOW)
 	time.sleep(4)
 
 	GPIO.cleanup(pump)
@@ -51,13 +59,18 @@ def waterAll():
 	for sector in sectData['sector']:
 		GPIO.cleanup(sector['pin'])
 
-	log = open('static/water-log.txt', 'a')
+	log = getJsonData('water-log')
 	now = datetime.now()
+	newLog = {'date': f'{now.strftime("%m/%d/%Y")}',
+		'time': f'{now.strftime("%H:%M:%S")}',
+		'message': 'Watered all sectors by manual override.'
+	}
+	log['log'].append(newLog)
 
-	log.write(f"{now.strftime('%m/%d/%Y %H:%M:%S')} Watered all sectors by manual override.\n")
+	setJsonData('water-log', log)
 
 def waterNow(sectID):
-	sectData = getSectData()
+	sectData = getJsonData('watering-sectors')
 	pump = sectData['pump-pin']
 
 	sectorTemp = {}
@@ -67,21 +80,27 @@ def waterNow(sectID):
 			break
 
 	GPIO.setup(pump, GPIO.OUT)
-	GPIO.output(pump, GPIO.HIGH)
+	GPIO.output(pump, GPIO.LOW)
 	time.sleep(1)
 
 	GPIO.setup(sectorTemp['pin'], GPIO.OUT)
-	GPIO.output(sectorTemp['pin'], GPIO.HIGH)
+	GPIO.output(sectorTemp['pin'], GPIO.LOW)
 	time.sleep(4)
 
 	GPIO.cleanup(pump)
 	time.sleep(1)
 	GPIO.cleanup(sectorTemp['pin'])
 
-	log = open('static/water-log.txt', 'a')
+	log = getJsonData('water-log')
 	now = datetime.now()
+	newLog = {'date': f'{now.strftime("%m/%d/%Y")}',
+		'time': f'{now.strftime("%H:%M:%S")}',
+		'message': f'Watered sector {sectID} by manual override.'
 
-	log.write(f"{now.strftime('%m/%d/%Y %H:%M:%S')} Watered sector {sectID} by manual override.\n")
+	}
+	log['log'].append(newLog)
+
+	setJsonData('water-log', log)
 
 def getForecast(forecast_file):
 	fcast = forecast_file.readlines()
@@ -89,7 +108,6 @@ def getForecast(forecast_file):
 	weather = []
 
 	for line in fcast:
-
 		if counter == 8:
 			break
 		else:
@@ -117,7 +135,7 @@ def getForecast(forecast_file):
 
 @app.route("/initialize", methods=['GET', 'POST'])
 def initialize():
-	sectData = getSectData()
+	sectData = getJsonData('watering-sectors')
 	navURL = getNavURL()
 	styles = getStyles()
 
@@ -171,8 +189,7 @@ def initialize():
 					}
 					tempData['sector'].append(sectTemp)
 
-				with open('static/watering-sectors.json', 'w') as file:
-					json.dump(tempData, file, indent=2, sort_keys=True)
+				setJsonData('watering-sectors', tempData)
 				return redirect(url_for('.initialize'))
 
 		return render_template('initialize.html', navurl=navURL, styles=styles, sectData=sectData)
@@ -183,18 +200,16 @@ def initialize():
 def waterLog():
 	if request.method == 'POST':
 		if 'clear' in request.form.keys():
-			file = open('static/water-log.txt', 'w')
-			file.close()
+			data = {'log': []
+			}
+			setJsonData('water-log', data)
 
 		return redirect(url_for('.waterLog'))
 	else:
 		navURL = getNavURL()
 		styles = getStyles()
 
-		waterLog = None
-		with open('static/water-log.txt') as file:
-			waterLog = file.readlines()
-
+		waterLog = getJsonData('water-log')
 		return render_template('water-log.html', navurl=navURL, styles=styles, waterLog=waterLog)
 
 def getNavURL():
@@ -210,13 +225,17 @@ def getStyles():
 
 	return styles
 
-def getSectData():
-	sectData = None
+def getJsonData(filename):
+	data = None
 
-	with open('static/watering-sectors.json', 'r') as file:
-		sectData = json.load(file)
+	with open(f'static/{filename}.json', 'r') as file:
+		data = json.load(file)
 
-	return sectData
+	return data
+
+def setJsonData(filename, data):
+	with open(f'static/{filename}.json', 'w') as file:
+		json.dump(data, file, indent=2, sort_keys=True)
 
 if __name__ == '__main__':
 	app.run(debug=True)

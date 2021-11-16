@@ -27,8 +27,8 @@
 	<input name= "clear" type="submit" value="Clear Log">
 	</form>
 	<ul>
-	{%for line in waterLog%}
-	<li>{{line}}</li>
+	{%for line in waterLog['log']%}
+	<li>{{line['date']}} {{line['time']}} {{line['message']}}</li>
 	{%endfor%}
 	</ul>
 </div>
