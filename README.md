@@ -26,3 +26,4 @@ File install instructions:
 0 17 * * * python3 ~/path/to/get-forcast.py
 0 11 * * * python3 ~/path/to/daily-water-control.py
 the entries will have 'get-forecast.py' run daily at 5pm, and 'daily-water-control.py' daily the next morning at 11am
+3. For the flask app enter command "export FLASK_APP=FlaskStart.py"
