@@ -1,47 +1,64 @@
 import json, time
 import RPi.GPIO as GPIO
-from datetime import date
-from datetime import datetime
+from datetime import date, datetime
 
 
 GPIO.setmode(GPIO.BCM)
-#log file to read forcast from
-log = open("/var/www/FlaskServer/static/forecast.txt", "r")
-fcast = log.readlines()
+today = str(date.today())
+today = today[8 : 10]
+now = datetime.now()
+#today = '14'
+
+def readJson(files):
+	fList = []
+	for file in files:
+		with open(f'/var/www/FlaskServer/static/{file}.json', 'r') as f:
+			fList.append(json.load(f))
+	return fList[0], fList[1], fList[2]
+
+def writeJson(data):
+	for d in data['allData']:
+		with open(f'/var/www/FlaskServer/static/{d["file"]}.json', 'w') as f:
+			json.dump(d['data'], f, indent=2)
+
+def stripOldLog(log, td, inc):
+	logDate = datetime.strptime(log['log'][0]['date'], '%m/%d/%Y')
+	subDate = td.date() - logDate.date()
+	if subDate.days > inc:
+		del log['log'][0]
+		return stripOldLog(log, td, inc)
+	else
+		return log
+
+def finalize(l, l60, sd, files):
+	l = stripOldLog(l, now, 30)
+	l60 = stripOldLog(l60, now, 60)
+	data = {'allData': [{'file': files[0],
+			'data': l
+			},
+			{'file': files[1],
+			'data': l60
+			},
+			{'file': files[2],
+			'data': sd
+			}]
+		}
+	writeJson(data)
+
+fcast = None
+#log file to read forecast from
+with open('/var/www/FlaskServer/static/forecast.json') as f:
+	fcast = json.load(f)
 fcastToday = ""
-log.close()
-
-for line in fcast:
-	#extract forecast reference_time and status from file read
-	reftime = line.find("reference_time=")
-	refstatus = line.find("status=")
-	reftimeend = line.find("+")
-	refstatend = line.find(", d")
-
-	fcastTime = line[reftime : reftimeend]
-	status = line[refstatus : refstatend]
-	fcastTime = fcastTime.replace("reference_time=", "")
-	status = status.replace("status=", "")
-
-	#isolate system date, and forecast time
-	foreDate = fcastTime[8 : 10]
-	foreHour = fcastTime[11 : 13]
-	today = str(date.today())
-	today = today[8 : 10]
-#	today = '16'
-
-	if foreDate == today:
-		fcastToday += str(fcastTime) + ", " + str(status) + "\n"
+for fc in fcast['forecast']:
+	day = fc['date'][-2 : ]
+	if day == today:
+		fcastToday += f"{fc['time']}, {fc['status']}\n"
 #print(f'forecast:\n{fcastToday}')
 
 #perform, and log actions
-log = None
-with open('/var/www/FlaskServer/static/water-log.json', 'r') as f:
-	log = json.load(f)
-sectData = None
-with open('/var/www/FlaskServer/static/watering-sectors.json', 'r') as f:
-	sectData = json.load(f)
-now = datetime.now()
+files = ['water-log', 'water-log-60-day', 'watering-sectors']
+log, log60, sectData = readJson(files)
 
 #if it rains: reset last-rained, and write to log
 if fcastToday != '' and "rain" in fcastToday:
@@ -51,12 +68,15 @@ if fcastToday != '' and "rain" in fcastToday:
 
 	}
 	log['log'].append(newLog)
-	with open('/var/www/FlaskServer/static/water-log.json', 'w') as f:
-		json.dump(log, f, indent=2, sort_keys=True)
+	log60['log'].append(newLog)
+	while len(log) > 30:
+		del log[0]
+	while len(log60) > 60:
+		del log[0]
 
-	sectData["last-rained"] = 0
-	with open('/var/www/FlaskServer/static/watering-sectors.json', 'w') as f:
-		json.dump(sectData, f, indent=2, sort_keys=True)
+	sectData['last-rained'] = 0
+
+	finalize(log, log60, sectData, files)
 
 #if it does not rain: water sectors based on interval
 elif fcastToday != '':
@@ -87,22 +107,16 @@ elif fcastToday != '':
 		'message': line
 	}
 	log['log'].append(newLog)
-	with open('/var/www/FlaskServer/static/water-log.json', 'w') as f:
-		json.dump(log, f, indent=2, sort_keys=True)
-
-	with open('/var/www/FlaskServer/static/watering-sectors.json', 'w') as f:
-		json.dump(sectData, f, indent=2, sort_keys=True)
+	log60['log'].append(newLog)
+	finalize(log, log60, sectData, files)
 
 #if get forecast operation returned erroneous
 else:
+	sectData['last-rained'] += 1
 	newLog = {'date': f'{now.strftime("%m/%d/%Y")}',
 		'time': f'{now.strftime("%H:%M:%S")}',
 		'message': "Forecast data was not initialized correctly. Check for errors in 'forecast.txt'."
 	}
 	log['log'].append(newLog)
-	with open('/var/www/FlaskServer/static/water-log.json', 'w') as f:
-		json.dump(log, f, indent=2, sort_keys=True)
-
-	sectData["last-rained"] += 1
-	with open('/var/www/FlaskServer/static/watering-sectors.json', 'w') as f:
-		json.dump(sectData, f, indent=2, sort_keys=True)
+	log60['log'].append(newLog)
+	finalize(log, log60, sectData, files)

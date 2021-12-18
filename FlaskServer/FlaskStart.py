@@ -1,6 +1,5 @@
 import json, re, time
 import RPi.GPIO as GPIO
-
 from datetime import date, datetime
 from gpiozero import CPUTemperature
 from flask import Flask, jsonify, redirect, render_template, request, url_for
@@ -35,7 +34,7 @@ def index():
 			}
 		}
 		data['sectData'] = getJsonData('watering-sectors')
-		data['weather'] = getForecast(open('static/forecast.txt'))
+		data['weather'] = getForecast(getJsonData('forecast'))
 		data['sysData'] = getJsonData('system-data')
 
 		return render_template('index.html', navurl=navURL, styles=styles, data=data)
@@ -47,32 +46,35 @@ def waterAll():
 	GPIO.setup(pump, GPIO.OUT)
 	GPIO.output(pump, GPIO.LOW)
 	time.sleep(1)
-
 	for sector in sectData['sector']:
 		GPIO.setup(sector['pin'], GPIO.OUT)
 		GPIO.output(sector['pin'], GPIO.LOW)
 	time.sleep(4)
-
 	GPIO.cleanup(pump)
 	time.sleep(1)
-
 	for sector in sectData['sector']:
 		GPIO.cleanup(sector['pin'])
 
 	log = getJsonData('water-log')
+	log60 = getJsonData('water-log-60-day')
 	now = datetime.now()
 	newLog = {'date': f'{now.strftime("%m/%d/%Y")}',
 		'time': f'{now.strftime("%H:%M:%S")}',
 		'message': 'Watered all sectors by manual override.'
 	}
 	log['log'].append(newLog)
+	log60['log'].append(newLog)
+
+	today = getToday()
+	log = stripOldLog(log, today, 30)
+	log60 = stripOldLog(log60, today, 60)
 
 	setJsonData('water-log', log)
+	setJsonData('water-log-60-day', log60)
 
 def waterNow(sectID):
 	sectData = getJsonData('watering-sectors')
 	pump = sectData['pump-pin']
-
 	sectorTemp = {}
 	for sector in sectData['sector']:
 		if sector['id'] == sectID:
@@ -82,16 +84,15 @@ def waterNow(sectID):
 	GPIO.setup(pump, GPIO.OUT)
 	GPIO.output(pump, GPIO.LOW)
 	time.sleep(1)
-
 	GPIO.setup(sectorTemp['pin'], GPIO.OUT)
 	GPIO.output(sectorTemp['pin'], GPIO.LOW)
 	time.sleep(4)
-
 	GPIO.cleanup(pump)
 	time.sleep(1)
 	GPIO.cleanup(sectorTemp['pin'])
 
 	log = getJsonData('water-log')
+	log60 = getJsonData('water-log-60-day')
 	now = datetime.now()
 	newLog = {'date': f'{now.strftime("%m/%d/%Y")}',
 		'time': f'{now.strftime("%H:%M:%S")}',
@@ -99,59 +100,50 @@ def waterNow(sectID):
 
 	}
 	log['log'].append(newLog)
+	log60['log'].append(newLog)
+
+	today = getToday()
+	log = stripOldLog(log, today, 30)
+	log60 = stripOldLog(log60, today, 60)
 
 	setJsonData('water-log', log)
+	setJsonData('water-log-60-day', log60)
 
-def getForecast(forecast_file):
-	fcast = forecast_file.readlines()
+def getForecast(forecast_json):
 	counter = 0
 	weather = []
-
-	for line in fcast:
+	for fcast in forecast_json['forecast']:
 		if counter == 8:
 			break
 		else:
-			reftime = line.find('reference_time=')
-			reftimeend = line.find('+')
-			refstatus = line.find('status=')
-			refstatusend = line.find(', d')
-
-			extractTime = line[reftime : reftimeend]
-			extractTime = extractTime.replace('reference_time=', '')
-			status = line[refstatus: refstatusend]
-			status = status.replace('status=', '')
-
-			date = extractTime[ : 10]
-			time = extractTime[11 : ].strip()
-
-			data = {'date': date,
-				'time': time,
-				'status': status
-			}
-			weather.append(data)
-
-		counter +=1
+			weather.append(fcast)
+			counter +=1
 	return weather
+
+def stripOldLog(log, td, inc):
+	logDate = datetime.strptime(log['log'][0]['date'], '%m/%d/%Y')
+	subDate = td.date() - logDate.date()
+	if subDate.days > inc:
+		del log['log'][0]
+		return stripOldLog(log, td, inc)
+	else:
+		return log
 
 @app.route("/initialize", methods=['GET', 'POST'])
 def initialize():
-	sectData = getJsonData('watering-sectors')
-	navURL = getNavURL()
-	styles = getStyles()
+	sectData = getJsonData('watering-sectors') navURL = getNavURL() styles = getStyles()
 
 	if request.method == 'POST':
 		tempData = {'last-rained': sectData['last-rained'],
 			'pump-pin': sectData['pump-pin'],
 			'sector':[]
 		}
-
 		sectID = request.form.getlist('sectorID')
 		sectPin = request.form.getlist('sectorPin')
 		sectInc = request.form.getlist('sectorInc')
 		for key in request.form.keys():
 			if key.startswith('sectDel_'):
 				delSectID = key.split('_')[1]
-
 				for i in range(len(sectID)):
 					sectTemp = {'id': int(sectID[i]),
 						'pin': int(sectPin[i]),
@@ -159,7 +151,6 @@ def initialize():
 					}
 					if sectTemp['id'] != int(delSectID):
 						tempData['sector'].append(sectTemp)
-
 				return render_template('initialize.html', navurl=navURL, styles=styles, sectData=tempData)
 			elif key == 'sectAdd':
 				counter = 0
@@ -177,11 +168,9 @@ def initialize():
 
 				}
 				tempData['sector'].append(empty)
-
 				return render_template('initialize.html', navurl=navURL, styles=styles, sectData=tempData)
 			elif key == 'sectInit':
 				tempData['pump-pin'] = int(request.form['pumpPin'])
-
 				for i in range(len(sectID)):
 					sectTemp = {'id': i + 1,
 						'pin': int(sectPin[i]),
@@ -191,26 +180,36 @@ def initialize():
 
 				setJsonData('watering-sectors', tempData)
 				return redirect(url_for('.initialize'))
-
 		return render_template('initialize.html', navurl=navURL, styles=styles, sectData=sectData)
 	else:
 		return render_template('initialize.html', navurl=navURL, styles=styles, sectData=sectData)
 
 @app.route("/water-log", methods=['GET', 'POST'])
 def waterLog():
+	formButtons = True
 	if request.method == 'POST':
 		if 'clear' in request.form.keys():
 			data = {'log': []
 			}
 			setJsonData('water-log', data)
-
-		return redirect(url_for('.waterLog'))
+			return redirect(url_for('.waterLog'))
+		if '60daylog' in request.form.keys():
+			formButtons = False
+			navURL = getNavURL()
+			styles = getStyles()
+			waterLog = getJsonData('water-log-60-day')
+			return render_template('water-log.html', navurl=navURL, styles=styles, waterLog=waterLog, formButtons=formButtons)
+		if 'back' in request.form.keys():
+			return redirect(url_for('.waterLog'))
 	else:
 		navURL = getNavURL()
 		styles = getStyles()
-
 		waterLog = getJsonData('water-log')
-		return render_template('water-log.html', navurl=navURL, styles=styles, waterLog=waterLog)
+		return render_template('water-log.html', navurl=navURL, styles=styles, waterLog=waterLog, formButtons=formButtons)
+
+def getToday():
+	today = datetime.now()
+	return today
 
 def getNavURL():
 	navURL = {'index': url_for('.index'),
